@@ -3,6 +3,12 @@ use std::{
     env::args,
 };
 
+use file_handler::FileHandler;
+use languages_mapping::Language;
+
+pub mod file_handler;
+pub mod languages_mapping;
+
 fn main() {
     let args = args().skip(1).collect::<Vec<_>>();
 
@@ -13,10 +19,13 @@ fn main() {
             "-t" => (),
             "-d" => (),
             _ => {
+                let mut file = FileHandler::new(&arg);
+                file.get_language();
+                println!("{:?}", file);
             }
         }
     }
 
-
+    
 
 }
