@@ -19,7 +19,7 @@ fn main() {
             "-t" => (),
             "-d" => (),
             _ => {
-                let mut file = FileHandler::new(&arg);
+                let file = FileHandler::new(&arg);
                 file.get_language();
                 println!("{:?}", file);
             }
