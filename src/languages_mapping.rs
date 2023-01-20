@@ -8,10 +8,10 @@ use once_cell::sync::Lazy;
 #[derive(Clone)]
 pub struct Language<'a> {
     name: &'a str,
-    single_line_comment: Regex, // TODO: if faut check que le // est le premier caractère de la ligne (il peut y avoir des espaces avant)
-    multi_line_comment_begin: Option<Regex>, // optional,  le meme que single_line_comment
-    multi_line_comment_inbetween: Option<Regex>, // optional
-    multi_line_comment_end: Option<Regex>, // optional
+    single_line_comment: Regex, 
+    block_line_comment_begin: Option<Regex>,
+    block_line_comment_inbetween: Option<Regex>, // needed ? just need to check if the block comment is closed or not
+    block_line_comment_end: Option<Regex>, 
 }
 
 impl<'a> Language<'a> {
@@ -23,16 +23,16 @@ impl<'a> Language<'a> {
         &self.single_line_comment
     }
 
-    pub fn get_multi_line_comment_begin(&self) -> Option<&Regex> {
-        self.multi_line_comment_begin.as_ref()
+    pub fn get_block_line_comment_begin(&self) -> Option<&Regex> {
+        self.block_line_comment_begin.as_ref()
     }
 
-    pub fn get_multi_line_comment_inbetween(&self) -> Option<&Regex> {
-        self.multi_line_comment_inbetween.as_ref()
+    pub fn get_block_line_comment_inbetween(&self) -> Option<&Regex> {
+        self.block_line_comment_inbetween.as_ref()
     }
 
-    pub fn get_multi_line_comment_end(&self) -> Option<&Regex> {
-        self.multi_line_comment_end.as_ref()
+    pub fn get_block_line_comment_end(&self) -> Option<&Regex> {
+        self.block_line_comment_end.as_ref()
     }
 }
 
@@ -42,15 +42,15 @@ pub const LANGUAGES: Lazy<HashMap<&str, Language>> = Lazy::new(|| {
     languages.insert("Rust", Language {
         name: "Rust",
         single_line_comment: Regex::new(r"\s*//").unwrap(),
-        multi_line_comment_begin: Some(Regex::new(r"/\*").unwrap()),
-        multi_line_comment_inbetween: None, 
-        multi_line_comment_end: Some(Regex::new(r"\*/").unwrap()),
+        block_line_comment_begin: Some(Regex::new(r"\s*/\*").unwrap()),
+        block_line_comment_inbetween: None, 
+        block_line_comment_end: Some(Regex::new(r".*?\*/\s*").unwrap()),
 
     });
     //languages.insert("C++", Language {
     //    name: "C++",
     //    single_line_comment: Regex::new(r"^//").unwrap(),
-    //    multi_line_comment: Regex::new(r"/\*.*?\*/").unwrap()
+    //    block_line_comment: Regex::new(r"/\*.*?\*/").unwrap()
     //});
 
     languages

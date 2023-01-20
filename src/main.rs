@@ -1,13 +1,12 @@
-use std::{
-    process::exit,
-    env::args,
-};
+use std::env::args;
 
 use file_handler::FileHandler;
 use languages_mapping::Language;
+use file_supplier::ExtractInfo;
 
 pub mod file_handler;
 pub mod languages_mapping;
+pub mod file_supplier;
 
 fn main() {
     let args = args().skip(1).collect::<Vec<_>>();
@@ -19,9 +18,8 @@ fn main() {
             "-t" => (),
             "-d" => (),
             _ => {
-                let file = FileHandler::new(&arg);
-                file.get_language();
-                println!("{:?}", file);
+                let a = ExtractInfo::new();
+                a.get_argument(&arg)
             }
         }
     }

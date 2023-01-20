@@ -11,6 +11,7 @@ use crate::languages_mapping::{
 };
 
 const IS_BLANK: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*$").unwrap());
+static EMPTY_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"").unwrap());
 
 #[derive(Debug)]
 pub struct FileHandler {
@@ -49,19 +50,19 @@ impl FileHandler {
     }
 
     fn is_line_single_comment(&self, line: &str, single_line_comment: &Regex) -> bool {
-        single_line_comment.is_match(line) // or starts_with don't know what is better
+        single_line_comment.is_match(line)
     }
 
-    fn is_line_multiple_comment_start(&self, line: &str, start_comment_on_multiple_line: &Regex) -> bool {
-        start_comment_on_multiple_line.is_match(line)
+    fn is_line_block_comment_start(&self, line: &str, start_comment_on_block_line: &Regex) -> bool {
+        start_comment_on_block_line.is_match(line)
     }
 
-    fn is_line_multiple_comment_inbetween(&self, line : &str, inbetween_comment_on_multiple_line: &Regex) -> bool {
-        inbetween_comment_on_multiple_line.is_match(line)
-    }
+    //fn is_line_block_comment_inbetween(&self, line : &str, inbetween_comment_on_block_line: &Regex) -> bool {
+    //    inbetween_comment_on_block_line.is_match(line)
+    //}
 
-    fn is_line_multiple_comment_end(&self, line: &str, end_comment_on_multiple_line: &Regex) -> bool {
-        end_comment_on_multiple_line.is_match(line)
+    fn is_line_block_comment_end(&self, line: &str, end_comment_on_block_line: &Regex) -> bool {
+        end_comment_on_block_line.is_match(line)
     }
 
     fn read_file(&self) -> String {
@@ -71,18 +72,91 @@ impl FileHandler {
         content
     }
 
-    //fn get_lines(&self) -> Vec<String> {
-    //}
-    
-    // TODO: fn that take file and return stats
+    fn is_file_unknow<'a>(&self, mut file_stat: FileStats<'a>) -> FileStats<'a> {
+        let file = self.read_file();
+        let mut lines = file.lines();
+        while let Some(line) = lines.next() {
+            if self.is_line_blank(line) {
+                file_stat.add_blank_lines();
+            } else {
+                file_stat.add_code_lines();
+            }
+            file_stat.add_line();
+        } 
+        file_stat
+    }
 
-    pub fn get_language(&self) -> Option<Language> {
+    fn is_file_known<'a>(&self, language: Language , mut file_stat: FileStats<'a>) -> FileStats<'a> {
+        let file = self.read_file();
+        let mut lines = file.lines();
+
+        let mut is_in_block_comment = false;
+        let mut block_line_comment_begin_exist = false;
+        //let mut block_line_comment_inbetween_exist = false;
+        let mut block_line_comment_end_exist = false;
+
+        let regex_single_line_comment = language.get_single_line_comment();
+        let regex_begin_comment_on_block_line = match language.get_block_line_comment_begin() {
+            Some(regex) => {
+                block_line_comment_begin_exist = true;
+                regex
+            },
+            None => &EMPTY_REGEX,
+        };
+        // let regex_inbetween_comment_on_block_line = match language.get_block_line_comment_inbetween() {
+        //     Some(regex) => {
+        //         block_line_comment_inbetween_exist = true;
+        //         regex
+        //     },
+        //     None => &EMPTY_REGEX,
+        // };
+        let regex_end_comment_on_block_line = match language.get_block_line_comment_end() {
+            Some(regex) => {
+                block_line_comment_end_exist = true;
+                regex
+            },
+            None => &EMPTY_REGEX,
+        };
+
+        while let Some(line) = lines.next() {
+            if !is_in_block_comment {
+                if self.is_line_blank(&line) {
+                    file_stat.add_blank_lines();
+                } else if self.is_line_single_comment(&line, &regex_single_line_comment) {
+                    file_stat.add_comment_lines();
+                } else if block_line_comment_begin_exist && self.is_line_block_comment_start(&line, &regex_begin_comment_on_block_line) {
+                    file_stat.add_comment_lines();
+                    is_in_block_comment = true;
+                } else {
+                    file_stat.add_code_lines();
+                }
+            } else {
+                if block_line_comment_end_exist && self.is_line_block_comment_end(&line, &regex_end_comment_on_block_line) {
+                    is_in_block_comment = false;
+                } 
+                file_stat.add_comment_lines();
+            }
+            file_stat.add_line();
+        }
+        file_stat
+    }
+
+    pub fn get_file_stat(&self) -> FileStats {
+        let mut file_stat = FileStats::new();
+        let file_stat = match self.get_language(&mut file_stat) {
+            Some(l) => self.is_file_known(l, file_stat),
+            None => self.is_file_unknow(file_stat),
+        };
+        file_stat
+    }
+
+    fn get_language(&self, file_stat: &mut FileStats) -> Option<Language> {
         let extension = self.path.split('.').last();
         match extension {
             Some(ext) => {
                 for (language, exts) in EXTENSIONS.iter() {
                     if exts.contains(ext) {
-                        // TODO: ajouter FileStats language
+                        file_stat.add_language(language);
                         return LANGUAGES.get(language).cloned();
                     }
                 }
@@ -93,6 +167,7 @@ impl FileHandler {
     }
 }
 
+#[derive(Debug)]
 pub struct FileStats<'a> {
     language: &'a str,
     lines : usize,
@@ -132,33 +207,5 @@ impl<'a> FileStats<'a> {
         self.code_lines += 1;
     }
 
-    // TODO: add getters 
-}
-
-
-
-
-
-
-
-
-#[test] // TODO: handle that fields are private
-fn test_get_language_rust() {
-    let file_handler = FileHandler::new("main.rs");
-    let expected_language = Language {
-        name: "Rust",
-        single_line_comment: Regex::new(r"^//").unwrap(),
-        multi_line_comment_begin: Some(Regex::new(r"/\*").unwrap()),
-        multi_line_comment_inbetween: None,
-        multi_line_comment_end: Some(Regex::new(r"\*/").unwrap()),
-    };
-
-    let language = file_handler.get_language();
-    assert!(language.is_some());
-    let language = language.unwrap();
-    assert_eq!(language.get_name(), expected_language.get_name());
-    assert_eq!(language.get_single_line_comment().as_str(), expected_language.get_single_line_comment().as_str());
-    assert_eq!(language.get_multi_line_comment_begin().unwrap().as_str(), expected_language.get_multi_line_comment_begin().unwrap().as_str());
-    assert_eq!(language.get_multi_line_comment_inbetween().is_none(), expected_language.get_multi_line_comment_inbetween().is_none());
-    assert_eq!(language.get_multi_line_comment_end().unwrap().as_str(), expected_language.get_multi_line_comment_end().unwrap().as_str());
+    // TODO: add getters ?
 }
