@@ -13,7 +13,6 @@ use crate::languages_mapping::{
 const IS_BLANK: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*$").unwrap());
 static EMPTY_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"").unwrap());
 
-#[derive(Debug)]
 pub struct FileHandler {
     path: String,
 }
@@ -25,19 +24,15 @@ impl FileHandler {
         }
     }
 
-    fn is_file(&self) -> bool {
+    pub fn is_file(&self) -> bool {
         fs::metadata(&self.path).unwrap().is_file()
-    }
-
-    fn is_dir(&self) -> bool {
-        fs::metadata(&self.path).unwrap().is_dir()
     }
 
     fn open_file(&self) -> fs::File {
         fs::File::open(&self.path).unwrap()
     }
 
-    fn is_binary(&self) -> bool {
+    pub fn is_binary(&self) -> bool {
         let mut file = self.open_file();
         match file.read_to_string(&mut String::new()) {
             Ok(_) => false,
@@ -57,10 +52,6 @@ impl FileHandler {
         start_comment_on_block_line.is_match(line)
     }
 
-    //fn is_line_block_comment_inbetween(&self, line : &str, inbetween_comment_on_block_line: &Regex) -> bool {
-    //    inbetween_comment_on_block_line.is_match(line)
-    //}
-
     fn is_line_block_comment_end(&self, line: &str, end_comment_on_block_line: &Regex) -> bool {
         end_comment_on_block_line.is_match(line)
     }
@@ -72,8 +63,9 @@ impl FileHandler {
         content
     }
 
-    fn is_file_unknow<'a>(&self, mut file_stat: FileStats<'a>) -> FileStats<'a> {
+    fn is_file_unknow<'a>(&self, file_stat: &mut FileStats<'a>) -> FileStats<'a> {
         let file = self.read_file();
+        file_stat.add_size(file.len());
         let mut lines = file.lines();
         while let Some(line) = lines.next() {
             if self.is_line_blank(line) {
@@ -82,17 +74,17 @@ impl FileHandler {
                 file_stat.add_code_lines();
             }
             file_stat.add_line();
-        } 
-        file_stat
+        };
+        file_stat.to_owned()
     }
 
-    fn is_file_known<'a>(&self, language: Language , mut file_stat: FileStats<'a>) -> FileStats<'a> {
+    fn is_file_known<'a>(&self, language: Language , file_stat: &mut FileStats<'a>) -> FileStats<'a> {
         let file = self.read_file();
+        file_stat.add_size(file.len());
         let mut lines = file.lines();
 
         let mut is_in_block_comment = false;
         let mut block_line_comment_begin_exist = false;
-        //let mut block_line_comment_inbetween_exist = false;
         let mut block_line_comment_end_exist = false;
 
         let regex_single_line_comment = language.get_single_line_comment();
@@ -103,13 +95,7 @@ impl FileHandler {
             },
             None => &EMPTY_REGEX,
         };
-        // let regex_inbetween_comment_on_block_line = match language.get_block_line_comment_inbetween() {
-        //     Some(regex) => {
-        //         block_line_comment_inbetween_exist = true;
-        //         regex
-        //     },
-        //     None => &EMPTY_REGEX,
-        // };
+
         let regex_end_comment_on_block_line = match language.get_block_line_comment_end() {
             Some(regex) => {
                 block_line_comment_end_exist = true;
@@ -137,15 +123,15 @@ impl FileHandler {
                 file_stat.add_comment_lines();
             }
             file_stat.add_line();
-        }
-        file_stat
+        };
+        file_stat.to_owned()
     }
 
-    pub fn get_file_stat(&self) -> FileStats {
+    pub fn get_file_stat<'a>(&self) -> FileStats<'a> {
         let mut file_stat = FileStats::new();
         let file_stat = match self.get_language(&mut file_stat) {
-            Some(l) => self.is_file_known(l, file_stat),
-            None => self.is_file_unknow(file_stat),
+            Some(l) => self.is_file_known(l, &mut file_stat),
+            None => self.is_file_unknow(&mut file_stat),
         };
         file_stat
     }
@@ -167,9 +153,10 @@ impl FileHandler {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct FileStats<'a> {
     language: &'a str,
+    size: usize,
     lines : usize,
     blank_lines: usize,
     comment_lines: usize,
@@ -180,6 +167,7 @@ impl<'a> FileStats<'a> {
     pub fn new() -> FileStats<'a> {
         FileStats {
             language: "Unknown",
+            size: 0,
             lines: 0,
             blank_lines: 0,
             comment_lines: 0,
@@ -189,6 +177,10 @@ impl<'a> FileStats<'a> {
 
     pub fn add_language(&mut self, language: &'a str) {
         self.language = language;
+    }
+    
+    pub fn add_size(&mut self, size: usize) {
+        self.size += size;
     }
 
     pub fn add_line(&mut self) {
@@ -207,5 +199,27 @@ impl<'a> FileStats<'a> {
         self.code_lines += 1;
     }
 
-    // TODO: add getters ?
+    pub fn get_language(&self) -> &'a str {
+        self.language
+    }
+
+    pub fn get_size(&self) -> usize {
+        self.size
+    }
+
+    pub fn get_lines(&self) -> usize {
+        self.lines
+    }
+
+    pub fn get_blank_lines(&self) -> usize {
+        self.blank_lines
+    }
+
+    pub fn get_comment_lines(&self) -> usize {
+        self.comment_lines
+    }
+
+    pub fn get_code_lines(&self) -> usize {
+        self.code_lines
+    }
 }

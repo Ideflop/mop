@@ -1,7 +1,9 @@
-use std::collections::{
+use std::{
+    clone::Clone,
+    collections::{
     HashMap,
     HashSet,
-};
+}};
 use regex::Regex;
 use once_cell::sync::Lazy;
 
@@ -41,17 +43,20 @@ pub const LANGUAGES: Lazy<HashMap<&str, Language>> = Lazy::new(|| {
 
     languages.insert("Rust", Language {
         name: "Rust",
-        single_line_comment: Regex::new(r"\s*//").unwrap(),
+        single_line_comment: Regex::new(r"^\s*//").unwrap(),
         block_line_comment_begin: Some(Regex::new(r"\s*/\*").unwrap()),
         block_line_comment_inbetween: None, 
         block_line_comment_end: Some(Regex::new(r".*?\*/\s*").unwrap()),
 
     });
-    //languages.insert("C++", Language {
-    //    name: "C++",
-    //    single_line_comment: Regex::new(r"^//").unwrap(),
-    //    block_line_comment: Regex::new(r"/\*.*?\*/").unwrap()
-    //});
+    languages.insert("Java", Language {
+        name: "Java",
+        single_line_comment: Regex::new(r"^\s*//").unwrap(),
+        block_line_comment_begin: Some(Regex::new(r"\s*/\*").unwrap()),
+        block_line_comment_inbetween: None, 
+        block_line_comment_end: Some(Regex::new(r".*?\*/\s*").unwrap()),
+
+    });
 
     languages
 });
@@ -59,8 +64,11 @@ pub const LANGUAGES: Lazy<HashMap<&str, Language>> = Lazy::new(|| {
 pub const EXTENSIONS: Lazy<HashMap<&str, HashSet<&str>>> = Lazy::new(|| {
     let mut extensions = HashMap::new();
 
-    extensions.insert("Rust", HashSet::from_iter(vec!["rs"]));
     extensions.insert("C++", HashSet::from_iter(vec!["cpp", "cc", "C"]));
+    extensions.insert("Java", HashSet::from_iter(vec!["java"]));
+    extensions.insert("Rust", HashSet::from_iter(vec!["rs"]));
 
     extensions
 });
+
+pub const EXTENSIONS_TO_IGNORE: [&str; 52] = ["pdf", "png", "jpg", "jpeg", "gif", "svg", "ico", "bmp", "tiff", "tif", "webp", "psd", "eps", "raw", "cr2", "nef", "orf", "sr2", "arw", "dng", "heic", "heif", "indd", "zip", "rar", "tar", "gz", "7z", "bz2", "dmg", "iso", "mp3", "mp4", "wav", "flac", "aac", "ogg", "wma", "m4a", "avi", "mov", "wmv", "mpg", "mpeg", "3gp", "mkv", "flv", "swf", "f4v", "f4p", "f4a", "f4b"];
