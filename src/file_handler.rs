@@ -2,6 +2,7 @@ use std::{
     fs,
     io::Read,
 };
+
 use regex::Regex;
 use once_cell::sync::Lazy;
 
@@ -64,6 +65,7 @@ impl FileHandler {
     }
 
     fn is_file_unknow<'a>(&self, file_stat: &mut FileStats<'a>) -> FileStats<'a> {
+        println!("File {} is not supported", self.path);
         let file = self.read_file();
         file_stat.add_size(file.len());
         let mut lines = file.lines();

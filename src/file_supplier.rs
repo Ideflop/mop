@@ -98,7 +98,7 @@ impl ExtractInfo {
 
     pub fn get_argument<'a>(&self, arg: &str) -> Result<FileStats<'a>, String> {
         let file = FileHandler::new(&arg);
-        if file.is_file() && !file.is_binary() && !EXTENSIONS_TO_IGNORE.contains(&arg.split('.').last().unwrap()) {
+        if file.is_file() && !file.is_binary() && !EXTENSIONS_TO_IGNORE.contains(&arg.split(".").last().unwrap()) {
             Ok(file.get_file_stat())
         } else {
             Err(format!("{} is not a file or is binary", arg))
@@ -215,40 +215,240 @@ fn get_files_in_path(path: &str) -> Vec<String> {
             }
         } else if file_type.is_dir() {
             let subdir_path = entry.path();
-            file_names.append(&mut get_files_in_path(subdir_path.to_str().unwrap()));
+            if !subdir_path.to_str().unwrap().split('/').last().unwrap().starts_with(".") {
+                file_names.append(&mut get_files_in_path(subdir_path.to_str().unwrap()));
+            }
         }
     }
 
     file_names
 }
 
+
+
+// This if just for the print of the stats
+static mut OUTPUT_LANGUAGE_SIZE: isize = -15;
+static mut OUTPUT_NUMBER_OF_FILES_SIZE: isize = -5;
+static mut OUTPUT_SIZE_SIZE: isize = -4;
+static mut OUTPUT_BLANK_SIZE: isize = -11;
+static mut OUTPUT_COMMENT_SIZE: isize = -13;
+static mut OUTPUT_CODE_LINES_SIZE: isize = -10;
+static mut OUTPUT_TOT_LINES_SIZE: isize = -5;
+
+static mut OUTPUT_NUMBER_OF_FILES_PER_LANGUAGE: isize = 0;
+static mut OUTPUT_SIZE_PER_LANGUAGE: isize = 0;
+static mut OUTPUT_BLANK_PER_LANGUAGE: isize = 0;
+static mut OUTPUT_COMMENT_PER_LANGUAGE: isize = 0;
+static mut OUTPUT_CODE_LINES_PER_LANGUAGE: isize = 0;
+static mut OUTPUT_TOT_LINES_PER_LANGUAGE: isize = 0;
+
 impl fmt::Display for ExtractInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, ) -> fmt::Result {
+
+        let mut size_number_of_files = 0;
+        let mut size_size = 0;
+        let mut size_blank = 0;
+        let mut size_comment = 0;
+        let mut size_code_lines = 0;
+        let mut size_tot_lines = 0;
+        let mut size_hyphen = 0;
+
+        let mut tot_number_of_files = 0;
+        let mut tot_size = 0;
+        let mut tot_blank = 0;
+        let mut tot_comment = 0;
+        let mut tot_code_lines = 0;
+        let mut tot_tot_lines = 0;
+
+        unsafe {
+            size_number_of_files = OUTPUT_NUMBER_OF_FILES_SIZE + self.number_of_files.to_string().len() as isize + 1;
+            match size_number_of_files > 1 {
+                true => OUTPUT_NUMBER_OF_FILES_PER_LANGUAGE = OUTPUT_NUMBER_OF_FILES_SIZE.abs() + size_number_of_files,
+                false => {
+                    size_number_of_files = 1;
+                    OUTPUT_NUMBER_OF_FILES_PER_LANGUAGE = OUTPUT_NUMBER_OF_FILES_SIZE.abs() + 1;
+                }
+            }
+            size_size = OUTPUT_SIZE_SIZE + self.total_size.to_string().len() as isize + 1;
+            match size_size > 1 {
+                true => OUTPUT_SIZE_PER_LANGUAGE = OUTPUT_SIZE_SIZE.abs() + size_size,
+                false => {
+                    size_size = 1;
+                    OUTPUT_SIZE_PER_LANGUAGE = OUTPUT_SIZE_SIZE.abs() + 1;
+                }
+            }
+            size_blank = OUTPUT_BLANK_SIZE + self.tot_blank_lines.to_string().len() as isize + 1;
+            match size_blank > 1 {
+                true => OUTPUT_BLANK_PER_LANGUAGE = OUTPUT_BLANK_SIZE.abs() + size_blank,
+                false => {
+                    size_blank = 1;
+                    OUTPUT_BLANK_PER_LANGUAGE = OUTPUT_BLANK_SIZE.abs() + 1;
+                }
+            }
+            size_comment = OUTPUT_COMMENT_SIZE + self.tot_comment_lines.to_string().len() as isize + 1;
+            match size_comment > 1 {
+                true => OUTPUT_COMMENT_PER_LANGUAGE = OUTPUT_COMMENT_SIZE.abs() + size_comment,
+                false => {
+                    size_comment = 1;
+                    OUTPUT_COMMENT_PER_LANGUAGE = OUTPUT_COMMENT_SIZE.abs() + 1;
+                }
+            }
+            size_code_lines = OUTPUT_CODE_LINES_SIZE + self.tot_code_lines.to_string().len() as isize + 1;
+            match size_code_lines > 1 {
+                true => OUTPUT_CODE_LINES_PER_LANGUAGE = OUTPUT_CODE_LINES_SIZE.abs() + size_code_lines,
+                false => {
+                    size_code_lines = 1;
+                    OUTPUT_CODE_LINES_PER_LANGUAGE = OUTPUT_CODE_LINES_SIZE.abs() + 1;
+                }
+            }
+            size_tot_lines = OUTPUT_TOT_LINES_SIZE + self.tot_lines.to_string().len() as isize + 1;
+            match size_tot_lines > 1 {
+                true => OUTPUT_TOT_LINES_PER_LANGUAGE = OUTPUT_TOT_LINES_SIZE.abs() + size_tot_lines,
+                false => {
+                    size_tot_lines = 1;
+                    OUTPUT_TOT_LINES_PER_LANGUAGE = OUTPUT_TOT_LINES_SIZE.abs() + 1;
+                }
+            }
+            size_hyphen = (size_number_of_files + size_size + size_blank + size_comment + size_code_lines + size_tot_lines).abs();
+            match size_hyphen > 6 {
+                true => size_hyphen = size_hyphen - 5,
+                false => size_hyphen = 1,
+            }
+
+            tot_number_of_files = OUTPUT_TOT_LINES_PER_LANGUAGE - self.number_of_files.to_string().len() as isize;
+            match tot_number_of_files > 1 {
+                true => (),
+                false => tot_number_of_files = 1,
+            }
+            tot_size = OUTPUT_SIZE_PER_LANGUAGE - self.total_size.to_string().len() as isize;
+            match tot_size > 1 {
+                true => (),
+                false => tot_size = 1,
+            }
+            tot_blank = OUTPUT_BLANK_PER_LANGUAGE - self.tot_blank_lines.to_string().len() as isize;
+            match tot_blank > 1 {
+                true => (),
+                false => tot_blank = 1,
+            }
+            tot_comment = OUTPUT_COMMENT_PER_LANGUAGE - self.tot_comment_lines.to_string().len() as isize;
+            match tot_comment > 1 {
+                true => (),
+                false => tot_comment = 1,
+            }
+            tot_code_lines = OUTPUT_CODE_LINES_PER_LANGUAGE - self.tot_code_lines.to_string().len() as isize;
+            match tot_code_lines > 1 {
+                true => (),
+                false => tot_code_lines = 1,
+            }
+            tot_tot_lines = OUTPUT_TOT_LINES_PER_LANGUAGE - self.tot_lines.to_string().len() as isize;
+            match tot_tot_lines > 1 {
+                true => (),
+                false => tot_tot_lines = 1,
+            }
+        }
+
         let mut s = format!("
 Number of files ignored: {}
 Number of directories: {}
-|---------------------------------------------------------------------------------|
-| Language      | Files | Size | Blank lines | Comment lines | Code lines | TOTAL |
-|---------------------------------------------------------------------------------|
+|----------------------------------------------------------------------------------{}|
+| Language        |{}Files |{}Size |{}Blank lines |{}Comment lines |{}Code lines |{}TOTAL |
+|----------------------------------------------------------------------------------{}|
 "
-, self.number_of_files_ignore, self.number_of_directories);
+,           self.number_of_files_ignore, self.number_of_directories, 
+            "-".repeat( size_hyphen as usize ),
+            " ".repeat( size_number_of_files as usize ),
+            " ".repeat( size_size as usize ),
+            " ".repeat( size_blank as usize ),
+            " ".repeat( size_comment as usize ),
+            " ".repeat( size_code_lines as usize ),
+            " ".repeat( size_tot_lines as usize ),
+            "-".repeat( size_hyphen as usize ),
+            );
+
         for stat in self.stats_per_language.iter() {
             s += &format!("{}", stat).as_str();
         }
+
         s += format!(
-"|---------------------------------------------------------------------------------|
-| Total         |   {}  |   {} |        {} |          {} |         {} |    {} |
-|---------------------------------------------------------------------------------|
-",   self.number_of_files, self.total_size, self.tot_lines, self.tot_blank_lines, self.tot_comment_lines, self.tot_code_lines).as_str();
+"|----------------------------------------------------------------------------------{}|
+| Total           |{}{} |{}{} |{}{} |{}{} |{}{} |{}{} |
+|----------------------------------------------------------------------------------{}|
+"
+,           "-".repeat( size_hyphen as usize ),
+            " ".repeat( tot_number_of_files as usize ), self.number_of_files, 
+            " ".repeat( tot_size as usize ), self.total_size,
+            " ".repeat( tot_blank as usize ), self.tot_blank_lines,
+            " ".repeat( tot_comment as usize ), self.tot_comment_lines,
+            " ".repeat( tot_code_lines as usize ), self.tot_code_lines,
+            " ".repeat( tot_tot_lines as usize ), self.tot_lines,
+            "-".repeat(size_hyphen as usize),
+        ).as_str();
         write!(f, "{}", s)
     }
 }
 
 impl fmt:: Display for StatPerLanguage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        
+        let mut size_language = 0;
+        let mut size_number_of_files = 0;
+        let mut size_size = 0;
+        let mut size_blank = 0;
+        let mut size_comment = 0;
+        let mut size_code_lines = 0;
+        let mut size_tot_lines = 0;
+
+        unsafe {
+            size_language = OUTPUT_LANGUAGE_SIZE.abs() - self.language.len() as isize + 1;
+            match size_language > 1 {
+                true => (),
+                false => size_language = 1,
+            }
+            size_number_of_files = OUTPUT_NUMBER_OF_FILES_PER_LANGUAGE - self.number_of_files.to_string().len() as isize;
+            match size_number_of_files > 1 {
+                true => (),
+                false => size_number_of_files = 1,
+            }
+            size_size = OUTPUT_SIZE_PER_LANGUAGE - self.total_size.to_string().len() as isize;
+            match size_size > 1 {
+                true => (),
+                false => size_size = 1,
+            }
+            size_blank = OUTPUT_BLANK_PER_LANGUAGE - self.tot_blank_lines.to_string().len() as isize;
+            match size_blank > 1 {
+                true => (),
+                false => size_blank = 1,
+            }
+            size_comment = OUTPUT_COMMENT_PER_LANGUAGE - self.tot_comment_lines.to_string().len() as isize;
+            match size_comment > 1 {
+                true => (),
+                false => size_comment = 1,
+            }
+            size_code_lines = OUTPUT_CODE_LINES_PER_LANGUAGE - self.tot_code_lines.to_string().len() as isize;
+            match size_code_lines > 1 {
+                true => (),
+                false => size_code_lines = 1,
+            }
+            size_tot_lines = OUTPUT_TOT_LINES_PER_LANGUAGE - self.tot_lines.to_string().len() as isize;
+            match size_tot_lines > 1 {
+                true => (),
+                false => size_tot_lines = 1,
+            }
+
+            
+        }
+
         let s = format!(
-"| {}              {}      {} |        {} |            {} |       {} |     {} |
-", self.language, self.number_of_files, self.total_size, self.tot_blank_lines, self.tot_comment_lines, self.tot_code_lines, self.tot_lines);
+"| {}{}|{}{} |{}{} |{}{} |{}{} |{}{} |{}{} |
+"
+,       self.language, " ".repeat( size_language as usize ),
+        " ".repeat( size_number_of_files as usize ), self.number_of_files, 
+        " ".repeat( size_size as usize ), self.total_size, 
+        " ".repeat( size_blank as usize ), self.tot_blank_lines, 
+        " ".repeat( size_comment as usize ), self.tot_comment_lines, 
+        " ".repeat( size_code_lines as usize ), self.tot_code_lines, 
+        " ".repeat( size_tot_lines as usize ), self.tot_lines
+        );
         write!(f, "{}", s)
     }
 }

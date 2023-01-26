@@ -71,4 +71,4 @@ pub const EXTENSIONS: Lazy<HashMap<&str, HashSet<&str>>> = Lazy::new(|| {
     extensions
 });
 
-pub const EXTENSIONS_TO_IGNORE: [&str; 52] = ["pdf", "png", "jpg", "jpeg", "gif", "svg", "ico", "bmp", "tiff", "tif", "webp", "psd", "eps", "raw", "cr2", "nef", "orf", "sr2", "arw", "dng", "heic", "heif", "indd", "zip", "rar", "tar", "gz", "7z", "bz2", "dmg", "iso", "mp3", "mp4", "wav", "flac", "aac", "ogg", "wma", "m4a", "avi", "mov", "wmv", "mpg", "mpeg", "3gp", "mkv", "flv", "swf", "f4v", "f4p", "f4a", "f4b"];
+pub const EXTENSIONS_TO_IGNORE: [&str; 64] = ["pdf", "png", "jpg", "jpeg", "gif", "svg", "ico", "bmp", "tiff", "tif", "webp", "psd", "eps", "raw", "cr2", "nef", "orf", "sr2", "arw", "dng", "heic", "heif", "indd", "zip", "rar", "tar", "gz", "7z", "bz2", "dmg", "iso", "mp3", "mp4", "wav", "flac", "aac", "ogg", "wma", "m4a", "avi", "mov", "wmv", "mpg", "mpeg", "3gp", "mkv", "flv", "swf", "f4v", "f4p", "f4a", "f4b", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "bluej", "class", "jar" ];
