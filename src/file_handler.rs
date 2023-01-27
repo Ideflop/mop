@@ -1,10 +1,16 @@
 use std::{
     fs,
     io::Read,
+    sync::atomic::{
+        AtomicUsize, 
+        AtomicBool, 
+        Ordering
+    },
 };
 
 use regex::Regex;
 use once_cell::sync::Lazy;
+use rayon::prelude::*;
 
 use crate::languages_mapping::{
     Language,
@@ -68,24 +74,38 @@ impl FileHandler {
         println!("File {} is not supported", self.path);
         let file = self.read_file();
         file_stat.add_size(file.len());
-        let mut lines = file.lines();
-        while let Some(line) = lines.next() {
+        let lines: Vec<&str> = file.lines().collect();
+
+        let blank_lines = AtomicUsize::new(0);
+        let code_lines = AtomicUsize::new(0);
+        let total_lines = AtomicUsize::new(0);
+
+        lines.par_iter().for_each(|line| {
             if self.is_line_blank(line) {
-                file_stat.add_blank_lines();
+                blank_lines.fetch_add(1, Ordering::SeqCst);
             } else {
-                file_stat.add_code_lines();
-            }
-            file_stat.add_line();
-        };
+                code_lines.fetch_add(1, Ordering::SeqCst);
+            } 
+            total_lines.fetch_add(1, Ordering::SeqCst);
+        });
+        file_stat.add_blank_lines_tot(blank_lines.load(Ordering::Relaxed));
+        file_stat.add_code_lines_tot(code_lines.load(Ordering::Relaxed));
+        file_stat.add_lines_tot(total_lines.load(Ordering::Relaxed));
         file_stat.to_owned()
     }
 
     fn is_file_known<'a>(&self, language: Language , file_stat: &mut FileStats<'a>) -> FileStats<'a> {
         let file = self.read_file();
         file_stat.add_size(file.len());
-        let mut lines = file.lines();
+        let lines = file.lines().map(|l| l.to_string()).collect::<Vec<String>>();
 
-        let mut is_in_block_comment = false;
+        let blank_lines = AtomicUsize::new(0);
+        let comment_lines = AtomicUsize::new(0);
+        let code_lines = AtomicUsize::new(0);
+        let total_lines = AtomicUsize::new(0);
+
+        let is_in_block_comment = AtomicBool::new(false);
+
         let mut block_line_comment_begin_exist = false;
         let mut block_line_comment_end_exist = false;
 
@@ -106,26 +126,32 @@ impl FileHandler {
             None => &EMPTY_REGEX,
         };
 
-        while let Some(line) = lines.next() {
-            if !is_in_block_comment {
+        lines.par_iter().for_each(|line| {
+            if !is_in_block_comment.load(Ordering::Relaxed) {
                 if self.is_line_blank(&line) {
-                    file_stat.add_blank_lines();
+                    blank_lines.fetch_add(1, Ordering::SeqCst);
                 } else if self.is_line_single_comment(&line, &regex_single_line_comment) {
-                    file_stat.add_comment_lines();
+                    comment_lines.fetch_add(1, Ordering::SeqCst);
                 } else if block_line_comment_begin_exist && self.is_line_block_comment_start(&line, &regex_begin_comment_on_block_line) {
-                    file_stat.add_comment_lines();
-                    is_in_block_comment = true;
+                    comment_lines.fetch_add(1, Ordering::SeqCst);
+                    is_in_block_comment.store(true, Ordering::SeqCst);
                 } else {
-                    file_stat.add_code_lines();
+                    code_lines.fetch_add(1, Ordering::SeqCst);
                 }
             } else {
                 if block_line_comment_end_exist && self.is_line_block_comment_end(&line, &regex_end_comment_on_block_line) {
-                    is_in_block_comment = false;
+                    is_in_block_comment.store(false, Ordering::SeqCst);
                 } 
-                file_stat.add_comment_lines();
+                comment_lines.fetch_add(1, Ordering::SeqCst);
             }
-            file_stat.add_line();
-        };
+            total_lines.fetch_add(1, Ordering::SeqCst);
+        });
+
+        file_stat.add_blank_lines_tot(blank_lines.load(Ordering::Relaxed));
+        file_stat.add_comment_lines_tot(comment_lines.load(Ordering::Relaxed));
+        file_stat.add_code_lines_tot(code_lines.load(Ordering::Relaxed));
+        file_stat.add_lines_tot(total_lines.load(Ordering::Relaxed));
+
         file_stat.to_owned()
     }
 
@@ -185,20 +211,20 @@ impl<'a> FileStats<'a> {
         self.size += size;
     }
 
-    pub fn add_line(&mut self) {
-        self.lines += 1;
+    pub fn add_lines_tot(&mut self, lines: usize) {
+        self.lines += lines;
     }
 
-    pub fn add_blank_lines(&mut self) {
-        self.blank_lines += 1;
+    pub fn add_blank_lines_tot(&mut self, blank_lines: usize) {
+        self.blank_lines += blank_lines;
     }
 
-    pub fn add_comment_lines(&mut self) {
-        self.comment_lines += 1;
+    pub fn add_comment_lines_tot(&mut self, comment_lines: usize) {
+        self.comment_lines += comment_lines;
     }
 
-    pub fn add_code_lines(&mut self) {
-        self.code_lines += 1;
+    pub fn add_code_lines_tot(&mut self, code_lines: usize) {
+        self.code_lines += code_lines;
     }
 
     pub fn get_language(&self) -> &'a str {

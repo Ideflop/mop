@@ -315,7 +315,7 @@ impl fmt::Display for ExtractInfo {
                 false => size_hyphen = 1,
             }
 
-            tot_number_of_files = OUTPUT_TOT_LINES_PER_LANGUAGE - self.number_of_files.to_string().len() as isize;
+            tot_number_of_files = OUTPUT_NUMBER_OF_FILES_PER_LANGUAGE - self.number_of_files.to_string().len() as isize;
             match tot_number_of_files > 1 {
                 true => (),
                 false => tot_number_of_files = 1,
