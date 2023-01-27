@@ -71,7 +71,7 @@ impl FileHandler {
     }
 
     fn is_file_unknow<'a>(&self, file_stat: &mut FileStats<'a>) -> FileStats<'a> {
-        println!("File {} is not supported", self.path);
+        //println!("File {} is not supported", self.path); // I don't know if this is useful
         let file = self.read_file();
         file_stat.add_size(file.len());
         let lines: Vec<&str> = file.lines().collect();
@@ -129,22 +129,23 @@ impl FileHandler {
         lines.par_iter().for_each(|line| {
             if !is_in_block_comment.load(Ordering::Relaxed) {
                 if self.is_line_blank(&line) {
-                    blank_lines.fetch_add(1, Ordering::SeqCst);
+                    // previous : blank_lines.fetch_add(1, Ordering::SeqCst); but don't the difference but same result
+                    blank_lines.fetch_add(1, Ordering::Relaxed);
                 } else if self.is_line_single_comment(&line, &regex_single_line_comment) {
-                    comment_lines.fetch_add(1, Ordering::SeqCst);
+                    comment_lines.fetch_add(1, Ordering::Relaxed);
                 } else if block_line_comment_begin_exist && self.is_line_block_comment_start(&line, &regex_begin_comment_on_block_line) {
-                    comment_lines.fetch_add(1, Ordering::SeqCst);
-                    is_in_block_comment.store(true, Ordering::SeqCst);
+                    comment_lines.fetch_add(1, Ordering::Relaxed);
+                    is_in_block_comment.store(true, Ordering::Relaxed);
                 } else {
-                    code_lines.fetch_add(1, Ordering::SeqCst);
+                    code_lines.fetch_add(1, Ordering::Relaxed);
                 }
             } else {
                 if block_line_comment_end_exist && self.is_line_block_comment_end(&line, &regex_end_comment_on_block_line) {
-                    is_in_block_comment.store(false, Ordering::SeqCst);
+                    is_in_block_comment.store(false, Ordering::Relaxed);
                 } 
-                comment_lines.fetch_add(1, Ordering::SeqCst);
+                comment_lines.fetch_add(1, Ordering::Relaxed);
             }
-            total_lines.fetch_add(1, Ordering::SeqCst);
+            total_lines.fetch_add(1, Ordering::Relaxed);
         });
 
         file_stat.add_blank_lines_tot(blank_lines.load(Ordering::Relaxed));

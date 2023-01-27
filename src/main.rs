@@ -15,8 +15,10 @@ fn main() {
     if let Some(arg) = args_itr.next() {
         match arg.as_str() {
             "-f" => file_supplier::get_file(args.split_off(1)),
+            "--file" => file_supplier::get_file(args.split_off(1)),
             "-t" => (),
             "-d" => file_supplier::get_dir_from_main(args.split_off(1)),
+            "--directory" => file_supplier::get_dir_from_main(args.split_off(1)),
             "-s" => (),
             "-b" => (),
             _ => (),

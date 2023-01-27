@@ -3,7 +3,14 @@ use std::{
     fmt,
     path::Path,
     process::exit,
+    sync::Mutex,
+    sync::atomic::{
+        AtomicUsize, 
+        Ordering
+    },
 };
+
+use rayon::prelude::*;
 
 use crate::{
     languages_mapping::EXTENSIONS_TO_IGNORE,
@@ -37,12 +44,12 @@ impl ExtractInfo {
         }
     }
 
-    pub fn add_number_of_files(&mut self) {
-        self.number_of_files += 1;
+    pub fn add_number_of_files(&mut self, number_of_files: usize) {
+        self.number_of_files += number_of_files;
     }
 
-    pub fn add_number_of_files_ignore(&mut self) {
-        self.number_of_files_ignore += 1;
+    pub fn add_number_of_files_ignore(&mut self, number_of_files_ignore: usize) {
+        self.number_of_files_ignore += number_of_files_ignore;
     }
 
     pub fn add_number_of_directories(&mut self) {
@@ -69,28 +76,28 @@ impl ExtractInfo {
         self.tot_code_lines += lines;
     }
 
-    pub fn add_stat_for_each_language(&mut self, stats: FileStats) {
+    pub fn add_stat_for_each_language(&mut self, file_stat: FileStats) {
         let mut found = false;
         for stat in self.stats_per_language.iter_mut() {
-            if stat.language == stats.get_language() {
+            if stat.language == file_stat.get_language() {
                 stat.add_number_of_files();
-                stat.add_total_size(stats.get_size());
-                stat.add_tot_lines(stats.get_lines());
-                stat.add_tot_blank_lines(stats.get_blank_lines());
-                stat.add_tot_comment_lines(stats.get_comment_lines());
-                stat.add_tot_code_lines(stats.get_code_lines());
+                stat.add_total_size(file_stat.get_size());
+                stat.add_tot_lines(file_stat.get_lines());
+                stat.add_tot_blank_lines(file_stat.get_blank_lines());
+                stat.add_tot_comment_lines(file_stat.get_comment_lines());
+                stat.add_tot_code_lines(file_stat.get_code_lines());
                 found = true;
                 break;
             }
         }
         if !found {
             self.stats_per_language.push(StatPerLanguage::new(
-          stats.get_language().to_string(),
-                    stats.get_size(),
-                    stats.get_lines(),
-                    stats.get_blank_lines(),
-                    stats.get_comment_lines(),
-         stats.get_code_lines(),
+          file_stat.get_language().to_string(),
+                    file_stat.get_size(),
+                    file_stat.get_lines(),
+                    file_stat.get_blank_lines(),
+                    file_stat.get_comment_lines(),
+         file_stat.get_code_lines(),
             ));
         }
 
@@ -161,22 +168,47 @@ pub fn get_file(file: Vec<String>) {
         exit(1)
     }
     let mut extract_info = ExtractInfo::new();
-    for arg in file {
+
+    let number_of_files = AtomicUsize::new(0);
+    let number_of_files_ignore = AtomicUsize::new(0);
+    let total_size = AtomicUsize::new(0);
+    let total_lines = AtomicUsize::new(0);
+    let total_blank_lines = AtomicUsize::new(0);
+    let total_comment_lines = AtomicUsize::new(0);
+    let total_code_lines = AtomicUsize::new(0);
+    let file_stats_vec = Mutex::new(vec![]);
+
+    file.par_iter().for_each(|arg| {
         match extract_info.get_argument(&arg) {
             Ok(file_stat) => {
-                extract_info.add_number_of_files();
-                extract_info.add_total_size(file_stat.get_size());
-                extract_info.add_tot_lines(file_stat.get_lines());
-                extract_info.add_tot_blank_lines(file_stat.get_blank_lines());
-                extract_info.add_tot_comment_lines(file_stat.get_comment_lines());
-                extract_info.add_tot_code_lines(file_stat.get_code_lines());
-                extract_info.add_stat_for_each_language(file_stat);
+                number_of_files.fetch_add(1, Ordering::Relaxed);
+                print!("Number of files : {}\r",  number_of_files.load(Ordering::Relaxed));
+                total_size.fetch_add(file_stat.get_size(), Ordering::Relaxed);
+                total_lines.fetch_add(file_stat.get_lines(), Ordering::Relaxed);
+                total_blank_lines.fetch_add(file_stat.get_blank_lines(), Ordering::Relaxed);
+                total_comment_lines.fetch_add(file_stat.get_comment_lines(), Ordering::Relaxed);
+                total_code_lines.fetch_add(file_stat.get_code_lines(), Ordering::Relaxed);
+                let mut file_stats_vec = file_stats_vec.lock().unwrap();
+                file_stats_vec.push(file_stat);
             }
             Err(_) => {
-                extract_info.add_number_of_files_ignore();
+                number_of_files_ignore.fetch_add(1, Ordering::Relaxed);
             }
         }
-    };
+    });
+
+    extract_info.add_number_of_files(number_of_files.load(Ordering::Relaxed));
+    extract_info.add_number_of_files_ignore(number_of_files_ignore.load(Ordering::Relaxed));
+    extract_info.add_total_size(total_size.load(Ordering::Relaxed));
+    extract_info.add_tot_lines(total_lines.load(Ordering::Relaxed));
+    extract_info.add_tot_blank_lines(total_blank_lines.load(Ordering::Relaxed));
+    extract_info.add_tot_comment_lines(total_comment_lines.load(Ordering::Relaxed));
+    extract_info.add_tot_code_lines(total_code_lines.load(Ordering::Relaxed));
+    for file_stat in file_stats_vec.lock().unwrap().iter() {
+        extract_info.add_stat_for_each_language(file_stat.to_owned());
+    }
+    
+    print!("\x1B[2K");
     println!("{}", extract_info)
 }
 
@@ -201,10 +233,10 @@ pub fn get_dir_from_main(dir: Vec<String>) {
     get_file(file);
 }
 
-fn get_files_in_path(path: &str) -> Vec<String> {
+fn get_files_in_path(path: &str) -> Vec<String> { // TODO: add a way to ignore files and directories starting with a dot
     let path = Path::new(path);
-
     let mut file_names = vec![];
+
     for entry in fs::read_dir(path).unwrap() {
         let entry = entry.unwrap();
         let file_type = entry.file_type().unwrap();
