@@ -1,16 +1,10 @@
 use std::{
     fs,
     io::Read,
-    sync::atomic::{
-        AtomicUsize, 
-        AtomicBool, 
-        Ordering
-    },
 };
 
 use regex::Regex;
 use once_cell::sync::Lazy;
-use rayon::prelude::*;
 
 use crate::languages_mapping::{
     Language,
@@ -74,37 +68,35 @@ impl FileHandler {
         //println!("File {} is not supported", self.path); // I don't know if this is useful
         let file = self.read_file();
         file_stat.add_size(file.len());
-        let lines: Vec<&str> = file.lines().collect();
+        let mut lines = file.lines();
 
-        let blank_lines = AtomicUsize::new(0);
-        let code_lines = AtomicUsize::new(0);
-        let total_lines = AtomicUsize::new(0);
+        let mut blank_lines = 0;
+        let mut code_lines = 0;
+        let mut total_lines = 0;
 
-        lines.par_iter().for_each(|line| {
+        while let Some(line) = lines.next() {
             if self.is_line_blank(line) {
-                blank_lines.fetch_add(1, Ordering::SeqCst);
+                blank_lines += 1;
             } else {
-                code_lines.fetch_add(1, Ordering::SeqCst);
+                code_lines += 1;
             } 
-            total_lines.fetch_add(1, Ordering::SeqCst);
-        });
-        file_stat.add_blank_lines_tot(blank_lines.load(Ordering::Relaxed));
-        file_stat.add_code_lines_tot(code_lines.load(Ordering::Relaxed));
-        file_stat.add_lines_tot(total_lines.load(Ordering::Relaxed));
+            total_lines += 1;
+        };
+        file_stat.add_blank_lines_tot(blank_lines);
+        file_stat.add_code_lines_tot(code_lines);
+        file_stat.add_lines_tot(total_lines);
         file_stat.to_owned()
     }
 
     fn is_file_known<'a>(&self, language: Language , file_stat: &mut FileStats<'a>) -> FileStats<'a> {
         let file = self.read_file();
-        file_stat.add_size(file.len());
-        let lines = file.lines().map(|l| l.to_string()).collect::<Vec<String>>();
+        let mut lines = file.lines();
 
-        let blank_lines = AtomicUsize::new(0);
-        let comment_lines = AtomicUsize::new(0);
-        let code_lines = AtomicUsize::new(0);
-        let total_lines = AtomicUsize::new(0);
-
-        let is_in_block_comment = AtomicBool::new(false);
+        let mut blank_lines = 0;
+        let mut comment_lines = 0;
+        let mut code_lines = 0;
+        let mut total_lines = 0;
+        let mut is_in_block_comment = false;
 
         let mut block_line_comment_begin_exist = false;
         let mut block_line_comment_end_exist = false;
@@ -117,7 +109,6 @@ impl FileHandler {
             },
             None => &EMPTY_REGEX,
         };
-
         let regex_end_comment_on_block_line = match language.get_block_line_comment_end() {
             Some(regex) => {
                 block_line_comment_end_exist = true;
@@ -126,32 +117,31 @@ impl FileHandler {
             None => &EMPTY_REGEX,
         };
 
-        lines.par_iter().for_each(|line| {
-            if !is_in_block_comment.load(Ordering::Relaxed) {
+        while let Some(line) = lines.next() {
+            if !is_in_block_comment {
                 if self.is_line_blank(&line) {
-                    // previous : blank_lines.fetch_add(1, Ordering::SeqCst); but don't the difference but same result
-                    blank_lines.fetch_add(1, Ordering::Relaxed);
+                    blank_lines += 1;
                 } else if self.is_line_single_comment(&line, &regex_single_line_comment) {
-                    comment_lines.fetch_add(1, Ordering::Relaxed);
+                    comment_lines += 1;
                 } else if block_line_comment_begin_exist && self.is_line_block_comment_start(&line, &regex_begin_comment_on_block_line) {
-                    comment_lines.fetch_add(1, Ordering::Relaxed);
-                    is_in_block_comment.store(true, Ordering::Relaxed);
+                    comment_lines += 1;
+                    is_in_block_comment = true;
                 } else {
-                    code_lines.fetch_add(1, Ordering::Relaxed);
+                    code_lines += 1;
                 }
             } else {
                 if block_line_comment_end_exist && self.is_line_block_comment_end(&line, &regex_end_comment_on_block_line) {
-                    is_in_block_comment.store(false, Ordering::Relaxed);
-                } 
-                comment_lines.fetch_add(1, Ordering::Relaxed);
+                    is_in_block_comment = false;
+                }
+                comment_lines += 1;
             }
-            total_lines.fetch_add(1, Ordering::Relaxed);
-        });
+            total_lines += 1;
+        }
 
-        file_stat.add_blank_lines_tot(blank_lines.load(Ordering::Relaxed));
-        file_stat.add_comment_lines_tot(comment_lines.load(Ordering::Relaxed));
-        file_stat.add_code_lines_tot(code_lines.load(Ordering::Relaxed));
-        file_stat.add_lines_tot(total_lines.load(Ordering::Relaxed));
+        file_stat.add_blank_lines_tot(blank_lines);
+        file_stat.add_comment_lines_tot(comment_lines);
+        file_stat.add_code_lines_tot(code_lines);
+        file_stat.add_lines_tot(total_lines);
 
         file_stat.to_owned()
     }
