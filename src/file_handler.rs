@@ -11,6 +11,7 @@ use crate::languages_mapping::{
     LANGUAGES, EXTENSIONS,
 };
 
+
 const IS_BLANK: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*$").unwrap());
 static EMPTY_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"").unwrap());
 
@@ -90,6 +91,7 @@ impl FileHandler {
 
     fn is_file_known<'a>(&self, language: Language , file_stat: &mut FileStats<'a>) -> FileStats<'a> {
         let file = self.read_file();
+        file_stat.add_size(file.len());
         let mut lines = file.lines();
 
         let mut blank_lines = 0;
@@ -155,6 +157,7 @@ impl FileHandler {
         file_stat
     }
 
+    // TODO: remove the FileStats parameter to use it in search and metric
     fn get_language(&self, file_stat: &mut FileStats) -> Option<Language> {
         let extension = self.path.split('.').last();
         match extension {
@@ -170,9 +173,40 @@ impl FileHandler {
             _ => None,
         }
     }
+
+    pub fn get_language_for_search(&self) -> Option<Language> {
+        let extension = self.path.split('.').last();
+        match extension {
+            Some(ext) => {
+                for (language, exts) in EXTENSIONS.iter() {
+                    if exts.contains(ext) {
+                        return LANGUAGES.get(language).cloned();
+                    }
+                }
+                None
+            },
+            _ => None,
+        }
+    }
+
+    pub fn search_pattern(&self, pattern: &str) -> Vec<(u32,String)> {
+        let file = self.read_file();
+        let mut lines = file.lines();
+        
+        let mut result = Vec::new();
+        let mut file_number: u32 = 1;
+        while let Some(line) = lines.next() {
+            if line.contains(pattern) {
+                result.push((file_number, line.trim().to_owned()));
+            }
+            file_number += 1;
+        }
+        result
+    }
+
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone)]
 pub struct FileStats<'a> {
     language: &'a str,
     size: usize,

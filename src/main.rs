@@ -1,12 +1,11 @@
 use std::env::args;
 
-use file_handler::FileHandler;
-use languages_mapping::Language;
-use file_supplier::ExtractInfo;
+pub mod entry_point;
 
 pub mod file_handler;
 pub mod languages_mapping;
 pub mod file_supplier;
+pub mod search;
 
 fn main() {
     let mut args = args().skip(1).collect::<Vec<_>>();
@@ -14,12 +13,11 @@ fn main() {
     let mut args_itr = args.iter();
     if let Some(arg) = args_itr.next() {
         match arg.as_str() {
-            "-f" => file_supplier::get_file(args.split_off(1)),
-            "--file" => file_supplier::get_file(args.split_off(1)),
-            "-t" => (),
-            "-d" => file_supplier::get_dir_from_main(args.split_off(1)),
-            "--directory" => file_supplier::get_dir_from_main(args.split_off(1)),
-            "-s" => (),
+            // TODO: It is not anymore needed that -d or -f is specified.
+            "-h" | "--help" => (),
+            "-m" | "--metric" => entry_point::get_stat(args.split_off(1)),
+            "-t" | "--todo" => entry_point::search_for(args),
+            "-s" | "--search" => entry_point::search_for(args.split_off(1)),
             "-b" => (),
             _ => (),
         }
