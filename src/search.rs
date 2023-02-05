@@ -1,12 +1,16 @@
+use std::fmt;
+use std::sync::Mutex;
+
 use crate::file_handler::FileHandler;
 use crate::languages_mapping::EXTENSIONS_TO_IGNORE;
+use crate::search_print::print_and_choose;
 
 use rayon::prelude::*;
 
 pub struct Search<'a> {
     files: Vec<String>,
     pattern: &'a str,
-    search_result: Vec<SearchResult<'a>>,
+    search_result: Vec<SearchResult>,
 }
 
 impl<'a> Search<'a> {
@@ -18,16 +22,17 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub fn give_and_output_search(&self) {
+    pub fn give_and_output_search(&mut self) {
         if self.pattern == "TODO" {
             self.search_todo();
         } else {
             self.search_pattern();
         }
-        
+        print_and_choose(&self.search_result);
     }
 
-    fn search_todo(&self) {
+    fn search_todo(&mut self) {
+        let search_result_vec = Mutex::new(Vec::new());
         self.files.par_iter().for_each(|file| {
             let file_handler = FileHandler::new(file);
             if !file_handler.is_binary() && !EXTENSIONS_TO_IGNORE.contains(&file.split(".").last().unwrap()) {
@@ -40,12 +45,13 @@ impl<'a> Search<'a> {
                         match result.is_empty() {
                             true  => (),
                             false  => {
-                                let mut search_result = SearchResult::new(file);
+                                let mut search_result = SearchResult::new(file.to_string());
                                 for i in 0..result.len() {
                                     let just_todo = result[i].1.split("TODO").last().unwrap().trim().to_string();
                                     let new_result = (result[i].0, just_todo);
                                     search_result.add_lines(new_result);
                                 }
+                                search_result_vec.lock().unwrap().push(search_result);
                             },
                         }
                     }
@@ -55,10 +61,13 @@ impl<'a> Search<'a> {
                 }
             }
         });
+        for item in search_result_vec.lock().unwrap().iter() {
+            self.search_result.push(item.to_owned());
+        }
     }
 
-    fn search_pattern(&self) {
-        //for file in &self.files {
+    fn search_pattern(&mut self) {
+        let search_result_vec = Mutex::new(Vec::new());
         self.files.par_iter().for_each(|file| {
             let file_handler = FileHandler::new(file);
             if !file_handler.is_binary() {
@@ -66,24 +75,29 @@ impl<'a> Search<'a> {
                 match result.is_empty() {
                     true  => (),
                     false  => {
-                        let mut search_result = SearchResult::new(file);
+                        let mut search_result = SearchResult::new(file.to_string());
                         for i in 0..result.len() {
                             search_result.add_lines(result[i].to_owned())  
                         }
+                        search_result_vec.lock().unwrap().push(search_result);
                     },
                 }
             } 
         });
+        for item in search_result_vec.lock().unwrap().iter() {
+            self.search_result.push(item.to_owned());
+        }
     }
 }
 
-struct SearchResult<'a> {
-    file_name: &'a str,
-    lines: Vec<(u32, String)>,
+#[derive(Clone)]
+pub struct SearchResult {
+    pub file_name: String,
+    pub lines: Vec<(u32, String)>, // for search_print
 }
 
-impl<'a> SearchResult<'a> {
-    pub fn new(file_name: &'a str) -> SearchResult<'a> {
+impl<'a> SearchResult {
+    pub fn new(file_name: String) -> SearchResult {
         SearchResult {
             file_name,
             lines: Vec::new(),
@@ -91,6 +105,16 @@ impl<'a> SearchResult<'a> {
     }
     
     fn add_lines(&mut self, value: (u32, String) ) {
-        self.lines.push(value)
+        self.lines.push(value);
+    }
+}
+
+impl fmt::Display for SearchResult  {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = format!("{}\n", self.file_name);       
+        for (index, item)  in self.lines.iter().enumerate() {
+            s += format!("    {}) [{}] : {}\n", index + 1, item.0, item.1).as_str()
+        }
+        write!(f, "{}", s)
     }
 }

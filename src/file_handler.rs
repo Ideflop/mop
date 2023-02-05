@@ -157,7 +157,7 @@ impl FileHandler {
         file_stat
     }
 
-    // TODO: remove the FileStats parameter to use it in search and metric
+    // TODO remove the FileStats parameter to use it in search and metric
     fn get_language(&self, file_stat: &mut FileStats) -> Option<Language> {
         let extension = self.path.split('.').last();
         match extension {

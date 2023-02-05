@@ -37,11 +37,11 @@ pub fn search_for(arg: Vec<String>) {
         "-t" | "--todo" => "TODO",
        _ => &arg[0],
     };
-    println!("Searching for {}", pattern);
+    println!("Searching for {}\n", pattern);
     arg_copy.remove(0);
 
     let files = get_files(arg_copy);
-    let to_search= Search::new(files, pattern);
+    let mut to_search= Search::new(files, pattern);
     to_search.give_and_output_search();
 }
 
@@ -79,7 +79,7 @@ fn get_files(args: Vec<String>) -> Vec<String> {
     file
 }
 
-fn get_files_in_path(path: &str) -> Vec<String> { // TODO: add a way to ignore files and directories starting with a dot
+fn get_files_in_path(path: &str) -> Vec<String> { // TODO add a way to ignore files and directories starting with a dot
     let path = Path::new(path);
     let mut file_names = vec![];
 
@@ -104,7 +104,7 @@ fn get_files_in_path(path: &str) -> Vec<String> { // TODO: add a way to ignore f
 
 fn remove_duplicate(file: Vec<String>) -> Vec<String> {
     //let mut file = file;
-    //file.sort(); // TODO: sort is can be slow so check if hashSet is faster
+    //file.sort(); // TODO sort is can be slow so check if hashSet is faster
     //file.dedup();
     let file : Vec<String> = file.into_iter().collect::<HashSet<String>>().into_iter().collect();
     file
