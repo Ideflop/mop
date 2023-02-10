@@ -6,6 +6,7 @@ use crate::languages_mapping::EXTENSIONS_TO_IGNORE;
 use crate::search_print::print_and_choose;
 
 use rayon::prelude::*;
+use termion::{color, style};
 
 pub struct Search<'a> {
     files: Vec<String>,
@@ -40,8 +41,8 @@ impl<'a> Search<'a> {
                     Some(language) => {
                         let single_comment = language.get_single_line_comment().to_string();
                         let single_comment = single_comment.split("*").last().unwrap();
-                        let pattern = single_comment.to_owned() + " TODO";
-                        let result =file_handler.search_pattern(pattern.as_str());
+                        let pattern = single_comment.to_owned() + " TODO"; // TODO make also work for todo (lowercase)
+                        let result = file_handler.search_pattern(pattern.as_str());
                         match result.is_empty() {
                             true  => (),
                             false  => {
@@ -111,9 +112,21 @@ impl<'a> SearchResult {
 
 impl fmt::Display for SearchResult  {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = format!("{}\n", self.file_name);       
+        let mut s = format!("{}{}{}{}{}\n", color::Fg(color::Green), 
+                                                    style::Bold, 
+                                                    self.file_name, 
+                                                    style::Reset, 
+                                                    color::Fg(color::Reset)
+                                                    );
         for (index, item)  in self.lines.iter().enumerate() {
-            s += format!("    {}) [{}] : {}\n", index + 1, item.0, item.1).as_str()
+            s += format!("   {}{}{}{}{}) [{}] : {}\n", color::Fg(color::Yellow),
+                                                       style::Bold, 
+                                                       index + 1, 
+                                                       style::Reset, 
+                                                       color::Fg(color::Reset),
+                                                       item.0, 
+                                                       item.1
+                                                       ).as_str()
         }
         write!(f, "{}", s)
     }

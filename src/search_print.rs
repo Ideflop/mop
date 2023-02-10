@@ -5,6 +5,8 @@ use std::{
 };
 
 use termion::{
+    color,
+    style,
     input::TermRead,
     raw::IntoRawMode,
 };
@@ -16,31 +18,47 @@ pub fn print_and_choose( list: &Vec<SearchResult>) {
     let mut line_selected = false;
     let mut file_choosen = 0;
     let mut line_choosen = 0;
-
-    loop {
+    let mut total_pattern_found = 0;
+    
+    for i in 0..list.len() {
+        total_pattern_found += list[i].lines.len();
+    }
+    
+    loop { // TODO display the number of times the pattern is found
         print!("{}[2J", 27 as char);
         print!("{}[1;1H", 27 as char);
         if file_selected {
-            println!("The file {} is selected", list[file_choosen-1].file_name);
+            println!("The file {}{}{}{}{} is selected", color::Fg(color::Green), style::Bold, list[file_choosen-1].file_name, style::Reset,color::Fg(color::Reset));
         } else {
-            println!("No file is selected");
-            println!("Press enter to select a file");
+            print!("No file is selected. ");
+            println!("Press {}{}enter{}{} to select a file", color::Fg(color::Red), style::Bold, style::Reset, color::Fg(color::Reset));
         }
+        println!("Number of time (// TODO insert the pattern here) was found : {}{}{}{}{}", color::Fg(color::Green), style::Bold, total_pattern_found, style::Reset, color::Fg(color::Reset));
         println!("");
         for (index, item) in list.iter().enumerate() {
             if file_choosen != 0 {
                 let index_string = format!("{} ", index + 1);
                 if index_string.starts_with(file_choosen.to_string().as_str()) {
-                    println!("{}) {}", index + 1,  item)
+                    println!("{}{}{}{}{}) {}", color::Fg(color::Blue), 
+                                               style::Bold, index + 1, 
+                                               style::Reset,  
+                                               color::Fg(color::Reset),  
+                                               item,
+                                               )
                 }
             }
             else {
-                println!("{}) {}", index + 1,  item)
+                println!("{}{}{}{}{}) {}", color::Fg(color::Blue), 
+                                           style::Bold, index + 1, 
+                                           style::Reset,  
+                                           color::Fg(color::Reset),  
+                                           item,
+                                           )
             }
         }
 
         let stdin = io::stdin();
-        let stdout = io::stdout().into_raw_mode().unwrap(); // for interactive terminal without need to press enter
+        let _stdout = io::stdout().into_raw_mode().unwrap(); // for interactive terminal without need to press enter
         io::stdout().flush().unwrap();
 
         let event= stdin.keys().next().unwrap().unwrap();
@@ -68,7 +86,11 @@ pub fn print_and_choose( list: &Vec<SearchResult>) {
                                     return;
                                 }
                             };
-                            let line = item.lines[line_choosen - 1].0;
+                            let line = item.lines[line_choosen - 1].0; // TODO add a way to give the line where the pattern in found 
+                                                                            // ex : file blaba
+                                                                            //     1) [42] pattern
+                                                                            // possibility to give 42
+                                                                            // + error can append if line choosen not in lines
                             Command::new("/usr/bin/sh")
                                                 .arg("-c")
                                                 .arg(format!("{} +{} {}",editor, line, item.file_name))

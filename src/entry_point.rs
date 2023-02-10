@@ -79,7 +79,7 @@ fn get_files(args: Vec<String>) -> Vec<String> {
     file
 }
 
-fn get_files_in_path(path: &str) -> Vec<String> { // TODO add a way to ignore files and directories starting with a dot
+fn get_files_in_path(path: &str) -> Vec<String> {
     let path = Path::new(path);
     let mut file_names = vec![];
 
@@ -103,9 +103,6 @@ fn get_files_in_path(path: &str) -> Vec<String> { // TODO add a way to ignore fi
 }
 
 fn remove_duplicate(file: Vec<String>) -> Vec<String> {
-    //let mut file = file;
-    //file.sort(); // TODO sort is can be slow so check if hashSet is faster
-    //file.dedup();
     let file : Vec<String> = file.into_iter().collect::<HashSet<String>>().into_iter().collect();
     file
 }
