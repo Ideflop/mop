@@ -14,7 +14,7 @@ fn main() {
     let mut args_itr = args.iter();
     if let Some(arg) = args_itr.next() {
         match arg.as_str() {
-            "-h" | "--help" => (),
+            "-h" | "--help" => (), // todo add help
             "-m" | "--metric" => entry_point::get_stat(args.split_off(1)),
             "-t" | "--todo" => entry_point::search_for(args),
             "-s" | "--search" => entry_point::search_for(args.split_off(1)),
@@ -22,4 +22,5 @@ fn main() {
             _ => (),
         }
     }
+
 }

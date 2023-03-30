@@ -196,7 +196,7 @@ impl FileHandler {
         let mut result = Vec::new();
         let mut file_number: u32 = 1;
         while let Some(line) = lines.next() {
-            if line.contains(pattern) {
+            if line.contains(&pattern) || line.contains(&pattern.to_lowercase()) {
                 result.push((file_number, line.trim().to_owned()));
             }
             file_number += 1;
